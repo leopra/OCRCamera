@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Camera;
 import android.graphics.Matrix;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -15,24 +16,12 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
-import android.widget.Toast;
-
 import com.camerakit.CameraKitView;
-
-import org.opencv.android.OpenCVLoader;
-import org.opencv.android.Utils;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfDouble;
-import org.opencv.imgproc.Imgproc;
-
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
-
-import static java.lang.String.valueOf;
-
+import java.util.ArrayList;
 
 /**
  * The Activity useful for making photos
@@ -40,26 +29,13 @@ import static java.lang.String.valueOf;
 public class CameraActivity extends AppCompatActivity {
 
     private CameraKitView cameraKitView;
-    private static String orientationResult;
+    private static String orientationResult="P";
 
     /**
      * onCreate method of the Android Activity Lifecycle
      * @param savedInstanceState The Bundle of the last instance state saved
      * @author Romanello Stefano
      */
-
-
-    /**
-     * inizializza OpenCV
-     * @author Leonardo Pratesi
-     *
-     */
-    static {
-        if (!OpenCVLoader.initDebug()) {
-            // Handle initialization error
-        }
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -135,9 +111,7 @@ public class CameraActivity extends AppCompatActivity {
             @Override
             public void onAccuracyChanged(Sensor sensor, int accuracy) {
             }
-        },
-
-                sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
+        }, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
 
         FloatingActionButton mButtonTakePhoto = findViewById(R.id.take_photo_button);
         mButtonTakePhoto.setOnClickListener(new View.OnClickListener() {
@@ -148,7 +122,6 @@ public class CameraActivity extends AppCompatActivity {
                 edit.putString("text", null);
                 edit.putString("imageDataPath", null);
                 edit.apply();
-
                 takePhoto();
             }
         });
@@ -165,40 +138,29 @@ public class CameraActivity extends AppCompatActivity {
             @Override
             public void onImage(CameraKitView cameraKitView, final byte[] photo) {
 
-               Bitmap bitmapImage = BitmapFactory.decodeByteArray(photo, 0, photo.length, null);
-               double valoreBlur = blurValue(bitmapImage);
-               Toast.makeText(getBaseContext(), "Valore Blur " + String.valueOf(valoreBlur), Toast.LENGTH_LONG).show();
-                // -----------------------------------------------------------------------
-                //Image rotation    TOLTO PER PROBLEMI CON EMULATORE
-            /**    if(orientationResult != null)
+                Bitmap bitmapImage = BitmapFactory.decodeByteArray(photo, 0, photo.length, null);
+
+                //Image rotation
+                switch (orientationResult)
                 {
-                    switch (orientationResult)
-                    {
-                        case "LR": bitmapImage=rotateImage(bitmapImage,90); break;
-                        case "LL": bitmapImage=rotateImage(bitmapImage,270); break;
-                        case "PU": bitmapImage=rotateImage(bitmapImage,180); break;
-                        default: break;
-                    }
-                    */
-           //------------------------------------------------------------------------
-
-
-                    //Temporary stores the captured photo into a file that will be used from the Camera Result activity
-                    String filePath= tempFileImage(CameraActivity.this, bitmapImage,"capturedImage");
-
-                    SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-                    SharedPreferences.Editor edit = prefs.edit();
-                    edit.putString("imagePath", filePath.trim());
-                    edit.apply();
-
-                    //An intent that will launch the activity that will analyse the photo
-                    //If it is not blurry [Leonardo Pratesi]
-                    if (blurEvaluation(valoreBlur)) {
-                        Intent i = new Intent(CameraActivity.this, ResultActivity.class);
-                        startActivity(i);
-                    }
+                    case "LR": bitmapImage=rotateImage(bitmapImage,90); break;
+                    case "LL": bitmapImage=rotateImage(bitmapImage,270); break;
+                    case "PU": bitmapImage=rotateImage(bitmapImage,180); break;
+                    default: break;
                 }
-         //   }
+
+                //Temporary stores the captured photo into a file that will be used from the Camera Result activity
+                String filePath= tempFileImage(CameraActivity.this, bitmapImage,"capturedImage");
+
+                SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+                SharedPreferences.Editor edit = prefs.edit();
+                edit.putString("imagePath", filePath.trim());
+                edit.apply();
+
+                //An intent that will launch the activity that will analyse the photo
+                Intent i = new Intent(CameraActivity.this, ResultActivity.class);
+                startActivity(i);
+            }
         });
 
     }
@@ -278,47 +240,8 @@ public class CameraActivity extends AppCompatActivity {
                 matrix, true);
     }
 
-    /**
-     * Detect the blurriness by appling a Laplacian matrix and evaluating the variance (low variance means an usually blurry image)
-     * @param bitmap1 The captured image
-     * @return Double value of the variance
-     * @author Leonardo Pratesi
-     */
-    public static double blurValue(Bitmap bitmap1)
-    {
-        double blur;
-        double threshold= 10;
-        Bitmap image = bitmap1;
-        Mat matImage = new Mat();
-        org.opencv.android.Utils.bitmapToMat(image, matImage);
-        Mat destination = new Mat();
-        Mat matGray=new Mat();
-
-        Imgproc.cvtColor(matImage, matGray, Imgproc.COLOR_BGR2GRAY);
-        Imgproc.Laplacian(matGray, destination, 3);
-        MatOfDouble median = new MatOfDouble();
-        MatOfDouble std= new MatOfDouble();
-        Core.meanStdDev(destination, median , std);
-
-        blur=Math.pow(std.get(0,0)[0],2);
 
 
-
-        return blur;
-    }
-
-
-    public boolean blurEvaluation(double blurValue)
-    {
-        double threshold=10;
-
-        if (blurValue< threshold)
-            {
-                return false; //blurry
-            }
-        else
-                return true; //not blurry
-    }
 
 
 

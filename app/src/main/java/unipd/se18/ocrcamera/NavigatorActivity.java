@@ -10,8 +10,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 
-import org.opencv.android.OpenCVLoader;
-
 import java.io.File;
 
 /*
@@ -27,7 +25,6 @@ public class NavigatorActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
 
         super.onCreate(savedInstanceState);
 
@@ -61,7 +58,7 @@ public class NavigatorActivity extends AppCompatActivity {
         else {
             intent = new Intent(NavigatorActivity.this, CameraActivity.class);
         }
-
+        //intent = new Intent(NavigatorActivity.this, GalleryActivity.class);
 
         startActivity(intent);
         finish();

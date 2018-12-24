@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
+import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.Menu;
@@ -23,13 +24,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.opencv.android.BaseLoaderCallback;
-import org.opencv.android.LoaderCallbackInterface;
-import org.opencv.android.Utils;
-
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.imgproc.Imgproc;
+import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  * Class used for showing the result of the OCR processing
@@ -72,7 +68,6 @@ public class ResultActivity extends AppCompatActivity {
 
         lastPhoto = BitmapFactory.decodeFile(pathImage);
 
-
         if (lastPhoto != null) {
             mImageView.setImageBitmap(Bitmap.createScaledBitmap(lastPhoto, lastPhoto.getWidth(), lastPhoto.getHeight(), false));
         } else {
@@ -108,7 +103,7 @@ public class ResultActivity extends AppCompatActivity {
 
     /**
      * Handling click events on the menu
-     * @author Francesco Pham
+     * @author Francesco Pham - modified by Stefano Romanello
      */
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
@@ -117,6 +112,14 @@ public class ResultActivity extends AppCompatActivity {
             case R.id.test:
                 Intent i = new Intent(ResultActivity.this, TestResultActivity.class);
                 startActivity(i);
+                return true;
+            case R.id.download_photos:
+                Intent download_intent = new Intent(ResultActivity.this, DownloadDbActivity.class);
+                startActivity(download_intent);
+                return true;
+            case R.id.gallery:
+                Intent gallery_intent = new Intent(ResultActivity.this, GalleryActivity.class);
+                startActivity(gallery_intent);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -133,6 +136,7 @@ public class ResultActivity extends AppCompatActivity {
         private ProgressDialog progressDialog;
         private TextView resultTextView;
         private String progressMessage;
+        private Bitmap workingImage;
 
         AsyncLoad(TextView view, String progressMessage) {
             this.resultTextView = view;
@@ -143,8 +147,13 @@ public class ResultActivity extends AppCompatActivity {
         protected String doInBackground(Bitmap... bitmaps) {
             TextExtractor ocr = new TextExtractor();
             String textRecognized = "";
+
+            //Im passing only one image to the async and is the image that i want to work with. No need for a dedicate variable
+            workingImage=bitmaps[0];
+
             if(lastPhoto != null) {
                 textRecognized = ocr.getTextFromImg(lastPhoto);
+
                 if(textRecognized.equals(""))
                 {
                     textRecognized = getString(R.string.no_text_found);
@@ -180,6 +189,16 @@ public class ResultActivity extends AppCompatActivity {
             SharedPreferences.Editor editor = sharedPref.edit();
             editor.putString("text", s);
             editor.apply();
+
+            //I cant understand the ingredients yet, for now I put everything as one ingredient
+            ArrayList<String> txt = new ArrayList<>();
+            String testoFormattato=String.valueOf(Html.fromHtml(s));
+            txt.add(testoFormattato);
+            try {
+                GalleryManager.storeImage(getBaseContext(),workingImage,txt,"0%");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         @Override
@@ -188,7 +207,6 @@ public class ResultActivity extends AppCompatActivity {
                     progressMessage,
                     "");
         }
-
     }
 }
 
